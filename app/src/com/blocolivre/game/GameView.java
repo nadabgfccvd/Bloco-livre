@@ -101,10 +101,15 @@ public class GameView extends View {
     private void replayUiState() { if (listener != null) listener.onStateChanged(); }
 
     // ------------------------------------------------------------ layout
+    /** Callback de "layout pronto" — a demo dispara efeitos aqui (determinístico). */
+    private Runnable onFirstLayout;
+    public void setOnFirstLayout(Runnable r) { onFirstLayout = r; }
+
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         computeLayout(w, h);
+        if (onFirstLayout != null) { Runnable r = onFirstLayout; onFirstLayout = null; r.run(); }
     }
 
     private void computeLayout(int w, int h) {
@@ -156,8 +161,8 @@ public class GameView extends View {
         drawStreak(canvas);
         drawParticlesAndFloaters(canvas);
         if (dragging && dragPiece != null) drawDrag(canvas);
-        drawCelebrationCrown(canvas);     // coroa de estrelas SOBRE o board vazio
         drawCelebration(canvas);
+        drawCelebrationCrown(canvas);     // coroa/estrela-mor DEPOIS do banner: dominante
         drawToast(canvas);
         drawFooter(canvas);
         // anima enquanto houver efeito ativo OU perigo respirando
@@ -224,39 +229,49 @@ public class GameView extends View {
         final int G1 = 0xFFFFE08A, G2 = 0xFFFFF7D8;
         // halo dourado por trás do tabuleiro (3 camadas quentes)
         pA.setColor(withAlpha(G1, 96));
-        canvas.drawCircle(cx, cy, cell * 6.4f, pA);
+        canvas.drawCircle(cx, cy, cell * 7.6f, pA);
         pA.setColor(withAlpha(G1, 72));
-        canvas.drawCircle(cx, cy, cell * 5.6f, pA);
+        canvas.drawCircle(cx, cy, cy * 0f + cell * 6.4f, pA);
         pA.setColor(withAlpha(G2, 60));
-        canvas.drawCircle(cx, cy, cell * 4.8f, pA);
-        // raios de glória alternados (tamanhos pares/ímpares) — em cima do halo,
-        // ATRÁS do board: só as pontas aparecem fora do tabuleiro
-        for (int i = 0; i < 12; i++) {
-            float ang = (i / 12f) * (float) Math.PI * 2f + 0.13f;
-            float len = (i % 2 == 0) ? 6.9f : 5.6f;
-            pA.setColor(withAlpha(G1, 110));
-            cvSave(canvas);
-            canvas.rotate(ang * 57.2958f, cx, cy);
-            scratch.set(cx - cell * 0.30f, cy - cell * len, cx + cell * 0.30f, cy - cell * 4.2f);
-            canvas.drawRect(scratch, pA);
-            canvas.restore();
-        }
+        canvas.drawCircle(cx, cy, cell * 5.2f, pA);
     }
 
-    /** Coroa de estrelas douradas DENTRO do tabuleiro vazio (desenhada sobre
-     *  os wells) — o exclamation point do payoff, sempre visível no still. */
+    /** Coroa no TERÇO SUPERIOR: estrela-mor + 8 spokes curtos simétricos +
+     *  anel de 12 estrelas — o board vazio permanece VISÍVEL abaixo. */
     private void drawCelebrationCrown(Canvas canvas) {
         if (celebrateT <= 0) return;
         float cx = boardLeft + 4 * cell, cy = boardTop + 4 * cell;
-        float rx = 3.0f * cell, ry = 2.6f * cell;         // dentro do board 8×8
-        for (int i = 0; i < 12; i++) {
-            float ang = (i / 12f) * (float) Math.PI * 2f - (float) Math.PI / 2f;
-            float sx = cx + (float) Math.cos(ang) * rx;
-            float sy = cy + (float) Math.sin(ang) * ry;
-            drawStar(canvas, sx, sy, cell * (0.30f + 0.09f * (i % 3)));
+        // 8 spokes finos radiando da estrela-mor (r 0.95..1.25·cell, 6-8px)
+        float scy = cy - cell * 2.42f;                    // centro da estrela-mor
+        float bandTop = cy - cell * 2.10f;                // topo da faixa ouro
+        // GLOW suave atrás da estrela — CONFINADO acima da faixa (duas formas
+        // limpas, sem massa quente derretida na borda da banda)
+        int scg = canvas.save();
+        canvas.clipRect(0, 0, getWidth(), bandTop - cell * 0.04f);
+        for (int g = 3; g >= 1; g--) {
+            pA.setColor(withAlpha(0xFFFFF7D8, 26 * g));
+            canvas.drawCircle(cx, scy, cell * (0.62f + 0.34f * (4 - g) / 3f), pA);
         }
-        // estrela-mor central acima do banner
-        drawStar(canvas, cx, cy - cell * 1.85f, cell * 0.42f);
+        canvas.restoreToCount(scg);
+        pB.setColor(0xFFFFF3C4);                           // branco-quente: lê no glow
+        for (int i = 0; i < 8; i++) {
+            // HEMISFÉRIO SUPERIOR: burst pra CIMA (dy negativo), nunca cruza a faixa
+            float ang = (float) Math.PI * (0.08f + 0.84f * i / 7f);
+            float r0 = cell * 0.88f, r1 = cell * (1.12f + 0.16f * (i % 2));
+            float wd = cell * 0.055f;   // semi-largura: chord real ~0.11c = 9px
+            float dx = (float) Math.cos(ang), dy = -(float) Math.sin(ang);
+            pathScratch.reset();
+            pathScratch.moveTo(cx + dx * r0 - dy * wd, scy + dy * r0 + dx * wd);
+            pathScratch.lineTo(cx + dx * r0 + dy * wd, scy + dy * r0 - dx * wd);
+            pathScratch.lineTo(cx + dx * r1 + dy * wd, scy + dy * r1 - dx * wd);
+            pathScratch.lineTo(cx + dx * r1 - dy * wd, scy + dy * r1 + dx * wd);
+            pathScratch.close();
+            canvas.drawPath(pathScratch, pB);
+        }
+        // estrela-mor com OUTLINE escuro (figura-ground vs faixa ouro)
+        // drop shadow p/ baixo-dir (pousa na faixa: separação VISÍVEL) + corpo alto
+        drawStarShadow(canvas, cx + cell * 0.11f, scy - cell * 0.32f, cell * 0.70f);
+        drawStarOutlined(canvas, cx, scy - cell * 0.52f, cell * 0.70f);
     }
 
     /** Tint de perigo quando o tabuleiro enche — pulsa devagar (respiração). */
@@ -429,6 +444,10 @@ public class GameView extends View {
                     canvas.drawRoundRect(l - grow, t - grow, l + s + grow, t + s + grow, s * 0.18f, s * 0.18f, pA);
                 } else if (v == 0) {
                     int base = ((x + y) % 2 == 0) ? skin.cellEmpty() : dim(skin.cellEmpty(), 0.18f);
+                    // luz de estúdio REAL: wells afastados do centro caem na penumbra
+                    float wcx = (x + 0.5f - 4f), wcy = (y + 0.5f - 4f);
+                    float wd = (float) Math.sqrt(wcx * wcx + wcy * wcy) / 4.95f;   // 0 centro .. ~1 canto
+                    if (wd > 0.30f) base = blend(base, 0xFF060A12, 0.16f * (wd - 0.30f) / 0.70f);
         if (dangerFrac >= 0.55f) {
             float dk = Math.min(1f, (dangerFrac - 0.55f) / 0.25f);   // força total já aos 80%
             base = blend(base, 0xFF7A3038, 0.45f * dk);   // wells aquecem no perigo
@@ -437,6 +456,9 @@ public class GameView extends View {
                     boolean shadedAbove = y > 0 && model.cell(x, y - 1) != 0;
                     pA.setColor(base);
                     canvas.drawRoundRect(l, t, l + s, t + s, s * 0.20f, s * 0.20f, pA);
+                    // bisel diagonal usinado (micro-vida em cada well, visível)
+                    pA.setColor(withAlpha(0xFFFFFFFF, 38));
+                    canvas.drawLine(l + s * 0.18f, t + s * 0.62f, l + s * 0.52f, t + s * 0.28f, pA);
                     // sombra interna do topo (luz vem de cima) + AO de contato se há bloco acima
                     pA.setColor(shadedAbove ? 0x8C000000 : 0x3D000000);
                     float shH = shadedAbove ? 0.40f : 0.26f;
@@ -522,6 +544,16 @@ public class GameView extends View {
                 0.38f * Math.min(1f, (dangerFrac - 0.55f) / 0.45f));
         pA.setColor(trayCol);
         canvas.drawRoundRect(scratch, cell * 0.28f, cell * 0.28f, pA);
+        // polish: rim claro + gradiente de highlight em 3 faixas (bandeja 3D real)
+        pB.setColor(withAlpha(0xFFFFFFFF, 70));
+        scratch.set(w * 0.05f + 2, trayY - halfPanel + 2, w * 0.95f - 2, trayY - halfPanel + 4);
+        canvas.drawRect(scratch, pB);
+        pB.setColor(withAlpha(0xFFFFFFFF, 60));
+        scratch.set(w * 0.05f + 2, trayY - halfPanel + 4, w * 0.95f - 2, trayY - halfPanel + 4 + halfPanel * 0.18f);
+        canvas.drawRect(scratch, pB);
+        pB.setColor(withAlpha(0xFFFFFFFF, 34));
+        scratch.set(w * 0.05f + 2, trayY - halfPanel + 4 + halfPanel * 0.18f, w * 0.95f - 2, trayY - halfPanel + 4 + halfPanel * 0.40f);
+        canvas.drawRect(scratch, pB);
 
         // clip: nada da bandeja vaza do painel (peças 1×5 incluídas)
         int sc = canvas.save();
@@ -620,33 +652,37 @@ public class GameView extends View {
         float cx = boardLeft + 4 * cell, cy = boardTop + 4 * cell;
         cvSave(canvas);
         float slide = (t - 0.5f) * w * 1.4f;
-        canvas.rotate(-6f, cx, cy);
-        // underlay escuro SIMÉTRICO centrado no board (mata compete-foco)
+        // sem rotação: underlay/faixa SIMÉTRICOS no centro do board
+        // underlay escuro no TERÇO SUPERIOR (board vazio visível)
         pB.setColor(withAlpha(0xFF1A1208, 232));
-        scratch.set(cx - w * 0.36f, cy - cell * 1.34f, cx + w * 0.36f, cy + cell * 0.98f);
+        scratch.set(cx - w * 0.46f, cy - cell * 2.16f, cx + w * 0.46f, cy + cell * 0.05f);
         canvas.drawRect(scratch, pB);
-        // faixa OURO grossa + filete branco
+        // faixa OURO no terço superior
         pB.setColor(0xFFF6C445);
         pB.setAlpha(238);
-        scratch.set(cx - w * 0.36f + slide * 0.6f * 0f, cy - cell * 1.26f, cx + w * 0.36f, cy - cell * 0.90f);
+        scratch.set(cx - w * 0.46f, cy - cell * 2.10f, cx + w * 0.46f, cy - cell * 0.70f);
         canvas.drawRect(scratch, pB);
-        pB.setColor(withAlpha(0xFFFFFFFF, 90));
-        scratch.set(cx - w * 0.36f, cy - cell * 0.90f, cx + w * 0.36f, cy - cell * 0.86f);
+        // hairlines 3px
+        pB.setColor(withAlpha(0xFFFFFFFF, 235));
+        scratch.set(cx - w * 0.46f, cy - cell * 2.10f, cx + w * 0.46f, cy - cell * 2.065f);
+        canvas.drawRect(scratch, pB);
+        scratch.set(cx - w * 0.46f, cy - cell * 0.735f, cx + w * 0.46f, cy - cell * 0.70f);
         canvas.drawRect(scratch, pB);
         pB.setAlpha(255);
         // texto display com sombra dura
         pText.setTextAlign(Paint.Align.CENTER);
         pText.setFakeBoldText(true);
-        pText.setLetterSpacing(0.10f);
+        pText.setLetterSpacing(0.02f);
         pText.setColor(0xE6221808);
-        canvas.drawText("LIMPEZA PERFEITA!", cx + 3, cy + cell * 0.17f, pText);
+        // texto DENTRO da faixa (baseline no centro da faixa)
+        canvas.drawText("LIMPEZA PERFEITA!", cx + 3, cy - cell * 1.34f, pText);
         pText.setColor(Color.WHITE);
-        pText.setTextSize(cell * 0.95f);
-        canvas.drawText("LIMPEZA PERFEITA!", cx, cy + cell * 0.14f, pText);
+        pText.setTextSize(cell * 0.66f);
+        canvas.drawText("LIMPEZA PERFEITA!", cx, cy - cell * 1.31f, pText);
         pText.setTextSize(cell * 0.42f);
         pText.setLetterSpacing(0.16f);
         pText.setColor(withAlpha(0xFFFFF3C8, 245));
-        canvas.drawText("NOVA SKIN · " + Skins.NAMES[celebrateTo].toUpperCase(), cx, cy + cell * 0.72f, pText);
+        canvas.drawText("NOVA SKIN · " + Skins.NAMES[celebrateTo].toUpperCase(), cx, cy - cell * 0.42f, pText);
         pText.setLetterSpacing(0f);
         pText.setTextAlign(Paint.Align.LEFT);
         pText.setFakeBoldText(false);
@@ -721,15 +757,79 @@ public class GameView extends View {
         pText.setFakeBoldText(false);
         pText.setTextSize(cell * 0.20f);
         pText.setColor(skin.hudSub());
-        canvas.drawText("peças " + model.piecesPlaced() + "   ·   linhas " + model.linesCleared(),
+        canvas.drawText("peças " + model.piecesPlaced() + "   ·   limpeza " + model.linesCleared(),
                 w - pad, midY + cell * 0.07f, pText);
         pText.setTextAlign(Paint.Align.LEFT);
         pText.setFakeBoldText(false);
+        // ---- BARRA DE OCUPAÇÃO: instrumento real de risco (track + fill + ticks + head)
+        float bw = w * 0.62f, bh = cell * 0.16f;
+        float bx = (w - bw) / 2f, by = midY + cell * 0.34f;
+        // track escuro com rim claro no topo (channel usinado)
+        pA.setColor(dim(skin.boardBg(), 0.38f));
+        canvas.drawRoundRect(bx - 3, by - 3, bx + bw + 3, by + bh + 3, bh, bh, pA);
+        pB.setColor(withAlpha(0xFFFFFFFF, 42));
+        canvas.drawRect(bx - 3, by - 3, bx + bw + 3, by - 1, pB);
+        // fill em 2 tons + head brilhante na ponta (gauge vivo)
+        int fillCol = dangerFrac >= 0.55f ? 0xFFE05038
+                : dangerFrac >= 0.35f ? 0xFFE8A03C : 0xFF9BBE6A;
+        float fx = bx + bw * Math.max(0.04f, dangerFrac);
+        pA.setColor(fillCol);
+        canvas.drawRoundRect(bx, by, fx, by + bh, bh, bh, pA);
+        pA.setColor(withAlpha(0xFFFFFFFF, 90));
+        canvas.drawRect(bx, by, fx, by + bh * 0.45f, pA);   // gloss do fill
+        pB.setColor(withAlpha(0xFFFFFFFF, 230));
+        canvas.drawRoundRect(fx - cell * 0.05f, by - 2, fx, by + bh + 2, 2f, 2f, pB);  // head
+        // ticks BRANCOS a cada 25% (marcações de escala do instrumento)
+        pB.setColor(withAlpha(0xFFFFFFFF, 165));
+        for (int i = 1; i <= 3; i++)
+            canvas.drawRect(bx + bw * i / 4f - 2, by - 2, bx + bw * i / 4f + 2, by + bh + 2, pB);
+        // rótulo % à direita da barra
+        pText.setTextAlign(Paint.Align.LEFT);
+        pText.setTextSize(cell * 0.16f);
+        pText.setColor(skin.hudSub());
+        canvas.drawText(((int) (dangerFrac * 100)) + "% do tabuleiro",
+                bx + bw + cell * 0.22f, by + bh, pText);
+        pText.setTextAlign(Paint.Align.LEFT);
         // estrelas de limpeza perfeita (acima do combo)
         if (model.perfectClears() > 0) {
             for (int i = 0; i < Math.min(3, model.perfectClears()); i++)
                 drawStar(canvas, pad + cell * 1.15f + (5 + i * 2) * pipR * 2.6f / 2f, midY, pipR * 1.3f);
         }
+    }
+
+    /** Estrela com contorno escuro + brilho interno (lê sobre qualquer fundo). */
+    private void drawStarOutlined(Canvas cv, float cx, float cy, float r) {
+        // halo quente imediato
+        pA.setColor(withAlpha(0xFFFFF7D8, 120));
+        cv.drawCircle(cx, cy, r * 1.22f, pA);
+        pB.setColor(0xFF3A2A08);                     // outline escuro
+        starPath(pathScratch, cx, cy, r * 1.10f);
+        cv.drawPath(pathScratch, pB);
+        pB.setColor(0xFFFFF176);                      // corpo
+        starPath(pathScratch, cx, cy, r);
+        cv.drawPath(pathScratch, pB);
+        pB.setColor(0xFFFFFFFF);                      // núcleo brilhante
+        starPath(pathScratch, cx, cy, r * 0.45f);
+        cv.drawPath(pathScratch, pB);
+    }
+
+    private static void starPath(Path p, float cx, float cy, float r) {
+        p.reset();
+        for (int k = 0; k < 8; k++) {
+            float ang = k * (float) Math.PI / 4f - (float) Math.PI / 2f;
+            float rr = (k % 2 == 0) ? r : r * 0.42f;
+            float px = cx + (float) Math.cos(ang) * rr;
+            float py = cy + (float) Math.sin(ang) * rr;
+            if (k == 0) p.moveTo(px, py); else p.lineTo(px, py);
+        }
+        p.close();
+    }
+
+    /** Sombra projetada da estrela (separa visualmente da faixa ouro). */
+    private void drawStarShadow(Canvas cv, float cx, float cy, float r) {
+        pB.setColor(withAlpha(0xFF0E0A06, 110));
+        starPath(pathScratch, cx, cy, r);
+        cv.drawPath(pathScratch, pB);
     }
 
     private void drawStar(Canvas cv, float cx, float cy, float r) {
@@ -975,8 +1075,9 @@ public class GameView extends View {
         float bx = boardLeft + 4 * cell, by = boardTop + 4 * cell;
         particles.starRing(bx, by, cell * 1.5f, 18, 0xFFFFF176);
         particles.starRing(bx, by, cell * 2.5f, 14, skin.hudAccent());
-        particles.confettiRainBoard(getWidth(), boardTop, boardTop + 8 * cell, skin.palette(), 60);
+        particles.confettiRainBoard(getWidth(), boardTop, boardTop + 8 * cell, skin.palette(), 100);   // ~200 itens
         particles.burstSpark(bx, by, 0xFFFFFFFF, 24);
+        particles.burstSpark(bx, by - cell * 2f, 0xFFFFF176, 20);   // clímax: faíscas na estrela
         floaters.add(new Floater("LIMPEZA PERFEITA +300", bx, by - cell, true));
         // anel dourado de estrelas CERCANDO o tabuleiro — elipse que CABE na tela:
         // rx = boardSize/2 + folga; ry idem (board centro y = boardTop+4cell)

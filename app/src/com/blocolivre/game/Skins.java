@@ -39,17 +39,25 @@ public final class Skins {
         public void block(Canvas cv, float l, float t, float s, int color, Paint[] p) {
             // sombra dura inferior (3D de brinquedo)
             p[0].setColor(dim(color, 0.52f));
-            RectF r = scratch();   // sombra mais profunda = range maior
+            RectF r = scratch();
             r.set(l, t + s * 0.08f, l + s, t + s);
             cv.drawRoundRect(r, s * 0.22f, s * 0.22f, p[0]);
             // corpo
             p[0].setColor(color);
             r.set(l, t, l + s, t + s * 0.92f);
             cv.drawRoundRect(r, s * 0.22f, s * 0.22f, p[0]);
+            // GRADIENTE LATERAL: luz vem de cima-esq (2 faixas esquerda mais clara)
+            p[0].setColor(withAlpha(dim(color, -0.16f), 255));
+            r.set(l + s * 0.04f, t + s * 0.04f, l + s * 0.30f, t + s * 0.88f);
+            cv.drawRoundRect(r, s * 0.10f, s * 0.10f, p[0]);
             // brilho de topo
-            p[0].setColor(0x8CFFFFFF);   // gloss mais brilhante (highlight real)
+            p[0].setColor(0x8CFFFFFF);
             r.set(l + s * 0.10f, t + s * 0.07f, l + s * 0.90f, t + s * 0.34f);
             cv.drawRoundRect(r, s * 0.14f, s * 0.14f, p[0]);
+            // rim light inferior (rebatimento do board)
+            p[0].setColor(withAlpha(dim(color, -0.30f), 255));
+            r.set(l + s * 0.06f, t + s * 0.80f, l + s * 0.94f, t + s * 0.92f);
+            cv.drawRoundRect(r, s * 0.10f, s * 0.10f, p[0]);
         }
     }
 

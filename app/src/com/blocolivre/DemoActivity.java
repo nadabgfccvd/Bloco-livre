@@ -44,7 +44,8 @@ public class DemoActivity extends Activity {
         if (forcedSkin >= 0) view.setSkin(forcedSkin);
 
         String forcedScene = forcedScene();
-        if ("clear".equals(forcedScene)) seedNearClear(view);
+        if ("hero".equals(forcedScene)) { seedMidGame(view, 20261113L); view.setPhotoFreeze(false); }
+        else if ("clear".equals(forcedScene)) seedNearClear(view);
         else if ("full".equals(forcedScene)) seedFullBoard(view);
         else seedMidGame(view, 20261112L);
 
@@ -58,7 +59,7 @@ public class DemoActivity extends Activity {
         root.addView(boardArea, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // controles da demo
+        // controles da demo (hero shot os omite; setContentView SEMPRE roda)
         LinearLayout foot = new LinearLayout(this);
         foot.setOrientation(LinearLayout.HORIZONTAL);
         foot.setGravity(Gravity.CENTER);
@@ -79,14 +80,14 @@ public class DemoActivity extends Activity {
         foot.addView(bClear, fp);
         foot.addView(bSkin, fp);
         foot.addView(bLaunch, fp);
-        root.addView(foot);
+        if (showControls()) root.addView(foot);
 
         setContentView(root);
         // still de fotografia: congela o relógio no clímax (celebração imortal)
         view.setPhotoFreeze(true);
-        // efeitos disparados JÁ no onCreate: o frame capturado pelo rd vem logo
-        // após o primeiro layout+draw, e post() pode não rodar antes do shot.
-        onSceneReady();
+        // efeitos no PRIMEIRO layout (boardLeft/cell valem 0 no onCreate!):
+        // callback determinístico — independe de fila de mensagens do runner.
+        view.setOnFirstLayout(this::onSceneReady);
     }
 
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
@@ -96,6 +97,7 @@ public class DemoActivity extends Activity {
 
     /** Override das subclasses-foto (padrão: cena mid-game). */
     protected String forcedScene() { return "mid"; }
+    protected boolean showControls() { return true; }
 
     /** Acesso da subclasse-foto à view criada. */
     protected GameView view() { return view; }

@@ -25,6 +25,7 @@ public final class MainActivity extends Activity implements GameView.Listener {
         super.onCreate(savedInstanceState);
         store = new SaveStore(this);
         view = new GameView(this, store);
+        view.setPhotoFreeze(false);
         view.setListener(this);
 
         android.widget.FrameLayout root = new android.widget.FrameLayout(this);

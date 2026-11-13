@@ -35,5 +35,36 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
+
+        <!-- alvos determinísticos de fotografia (herdam DemoActivity) -->
+        <activity android:name=".ShotSceneClear"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotSceneFull"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotSkin0"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotSkin1"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotSkin2"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotSkin3"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ShotHero" 
+
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
     </application>
 </manifest>

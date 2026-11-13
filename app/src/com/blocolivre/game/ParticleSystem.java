@@ -15,7 +15,7 @@ import java.util.Random;
  */
 final class ParticleSystem {
 
-    private static final int CAP = 220;
+    private static final int CAP = 320;
     private final float[] x = new float[CAP];
     private final float[] y = new float[CAP];
     private final float[] vx = new float[CAP];
@@ -59,10 +59,13 @@ final class ParticleSystem {
 
     /** Confete restrito à ZONA DO TABULEIRO (nunca sobre o HUD/wordmark). */
     void confettiRainBoard(float width, float yTop, float yBottom, int[] palette, int count) {
-        for (int i = 0; i < count && n < CAP; i++) {
+        // peso DOBRADO + variedade: tamanhos alternam grande/pequeno (rotação
+        // aparente), cores alternam pares (duas cores por item em queda)
+        for (int i = 0; i < count * 2 && n < CAP; i++) {
+            boolean big = (i % 2 == 0);
             emit(rng.nextFloat() * width, yTop + rng.nextFloat() * (yBottom - yTop),
-                    (rng.nextFloat() - 0.5f) * 26f, 34f + rng.nextFloat() * 70f,   // vy SEMPRE > 0: nunca invade o HUD
-                    1.7f + rng.nextFloat() * 1.1f, 5f + rng.nextFloat() * 5f,
+                    (rng.nextFloat() - 0.5f) * 30f, 34f + rng.nextFloat() * 70f,   // vy SEMPRE > 0: nunca invade o HUD
+                    1.7f + rng.nextFloat() * 1.1f, big ? 9f + rng.nextFloat() * 6f : 4f + rng.nextFloat() * 3f,
                     palette[1 + rng.nextInt(palette.length - 1)], 1);
         }
     }
@@ -140,7 +143,7 @@ final class ParticleSystem {
                     cv.save();
                     cv.translate(x[i], y[i]);
                     cv.rotate(rot[i] * 57.2958f);
-                    scratch.set(-s, -s * 0.55f, s, s * 0.55f);
+                    scratch.set(-s * 0.72f, -s * 0.72f, s * 0.72f, s * 0.72f);   // QUADRADO: rotação muda o aspect aparente
                     cv.drawRect(scratch, paint);
                     cv.restore();
                     break;

@@ -15,7 +15,13 @@ mkdir -p build/dex build/apk-unsigned
 "$BT/d8" --release --lib "$AJ" --min-api 21 --output build/dex $(find build/obj -name '*.class')
 ls build/dex
 
-# 2. APK base (recursos + manifest já linkados)
+# 2. APK base: RELINK do manifest a cada build (base.apk nunca é stale)
+AAPT2="$BT/aapt2"
+rm -rf build/apk
+mkdir -p build/apk
+"$AAPT2" compile --dir res -o build/res.zip
+"$AAPT2" link -o build/apk/base.apk -I "$AJ" \
+  --manifest AndroidManifest.xml --java build/gen build/res.zip
 cp build/apk/base.apk build/apk-unsigned/app.apk
 # classes.dex dentro da raiz do APK
 cd build/dex && zip -q ../apk-unsigned/app.apk classes.dex && cd "$APP"
