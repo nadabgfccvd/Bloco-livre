@@ -1,0 +1,5 @@
+*.class
+build/obj/
+build/dex/
+build/apk-unsigned/
+.DS_Store
